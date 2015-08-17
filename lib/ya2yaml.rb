@@ -23,13 +23,13 @@ class Ya2YAML
 	end
 
 	def _ya2yaml(obj)
-		throw 'set $KCODE to "UTF8".' if $KCODE != 'UTF8'
+		# throw 'set $KCODE to "UTF8".' if $KCODE != 'UTF8'
 		'--- ' + emit(obj,1) + "\n"
 	end
 
 	private
 
-	def emit(obj,level)
+	def emit(obj,level, val=false)
 		case obj.class.to_s
 			when 'Array'
 				if (obj.length == 0)
@@ -37,7 +37,7 @@ class Ya2YAML
 				else
 					indent = "\n" + s_indent(level - 1)
 					obj.collect {|o|
-						indent + '- ' + emit(o,level + 1)
+						indent + '- ' + emit(o,level + 1, true)
 					}.join('')
 				end
 			when 'Hash'
@@ -58,13 +58,13 @@ class Ya2YAML
 					end
 					hash_keys.collect {|k|
 						key = emit(k,level + 1)
-						indent + key + ': ' + emit(obj[k],level + 1)
+						indent + key + ': ' + emit(obj[k],level + 1, true)
 					}.join('')
 				end
 			when 'NilClass'
 				'~'
 			when 'String'
-				emit_string(obj,level)
+				emit_string(obj,level, val)
 			when 'TrueClass','FalseClass'
 				obj.to_s
 			when 'Fixnum','Bignum','Float'
@@ -105,11 +105,12 @@ class Ya2YAML
 		end
 	end
 
-	def emit_string(str,level)
+	def emit_string(str,level, val)
+
 		(is_string,is_printable,is_one_line,is_one_plain_line) = string_type(str)
 		if is_string
 			if is_printable
-				if is_one_plain_line
+				if is_one_plain_line && !val
 					emit_simple_string(str,level)
 				else
 					(is_one_line || str.length < @options[:minimum_block_length]) ?
@@ -352,7 +353,11 @@ end
 
 class Object
 	def ya2yaml(options = {})
-		Ya2YAML.new(options)._ya2yaml(self)
+		Ya2YAML.new(options)._ya2yaml(self).
+    # Put hash key on a single line if it is a symbol
+    gsub(/^(\s*)\? !ruby\/symbol (\S+)\s+/, '\1:\2').
+    # Use symbol literal
+    gsub(/(?<=\s)!ruby\/symbol /, ':')
 	end
 end
 
